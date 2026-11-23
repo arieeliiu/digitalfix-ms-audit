@@ -34,6 +34,10 @@ public class AuditoriaService {
     // Sin @Transactional aquí: saveAndFlush tiene su propia transacción, así que el choque
     // con la restricción se detecta en esta misma línea y no al final de otra transacción.
     public boolean registrar(SobreEvento sobre, int particion, long offset) {
+        return registrar(sobre, "workorders.events", particion, offset);
+    }
+
+    public boolean registrar(SobreEvento sobre, String topico, int particion, long offset) {
         String eventId = sobre.eventId().toString();
         if (repositorio.existsByEventId(eventId)) return false;
 
@@ -41,7 +45,7 @@ public class AuditoriaService {
         var registro = new EventoAuditoria(eventId, sobre.type(), sobre.correlationId(),
                 sobre.traceId() == null ? null : sobre.traceId().toString(),
                 e.ordenId(), e.accion(), e.estadoAnterior(), e.estadoNuevo(), e.tecnicoId(),
-                e.actorId(), e.actorRoles(), e.fecha(), particion, offset);
+                e.actorId(), e.actorRoles(), e.fecha(), particion, offset, topico);
         try {
             repositorio.saveAndFlush(registro);
             return true;

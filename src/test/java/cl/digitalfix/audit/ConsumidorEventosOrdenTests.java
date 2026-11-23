@@ -92,12 +92,29 @@ class ConsumidorEventosOrdenTests {
         assertThrows(EventoInvalido.class, () -> recibir(raro, 0));
     }
 
+    @Test void edicionSePersisteConSuTopicoDeOrigen() {
+        String mensaje = evento(UUID.randomUUID(), "ORDEN_CONTACTOS_ACTUALIZADOS", 22,
+                "EDICION_CONTACTOS", "ASIGNADA", "ASIGNADA", "oid", "2026-11-23T03:40:49Z");
+        consumidor.recibir(mensaje, 1, 4, "22", "22".getBytes(), "audit.timeline");
+        assertEquals("audit.timeline", repositorio.findAll().getFirst().getKafkaTopico());
+        assertThrows(EventoInvalido.class, () -> recibir(mensaje, 4));
+    }
+
+    @Test void versionIdentidadYAccionDebenCoincidirConElSobre() {
+        String mensaje = creada(UUID.randomUUID(), 22, "2026-11-23T03:40:49Z");
+        assertThrows(EventoInvalido.class, () -> recibir(mensaje.replace("1.0", "2.0"), 0));
+        assertThrows(EventoInvalido.class, () -> consumidor.recibir(mensaje, 0, 0, "otra-orden", null));
+        assertThrows(EventoInvalido.class, () -> recibir(mensaje.replace("CREACION", "ELIMINACION"), 0));
+        assertThrows(EventoInvalido.class, () -> recibir("null", 0));
+        assertEquals(0, repositorio.count());
+    }
+
     @Test void timelineEnOrdenCronologicoYBusquedaConFiltros() {
         // Llegan desordenados a propósito: el timeline ordena por fecha del evento
         recibir(evento(UUID.randomUUID(), "ORDEN_ESTADO_CAMBIADO", 22, "CAMBIO_ESTADO", "CREADA", "ASIGNADA",
                 "oid-operador", "2026-11-23T03:42:49Z"), 1);
         recibir(creada(UUID.randomUUID(), 22, "2026-11-23T03:40:49Z"), 0);
-        recibir(creada(UUID.randomUUID(), 23, "2026-11-23T04:00:00Z"), 2);
+        consumidor.recibir(creada(UUID.randomUUID(), 23, "2026-11-23T04:00:00Z"), 0, 2, "23", "23".getBytes());
 
         var timeline = servicio.timeline(22L);
         assertEquals(2, timeline.size());

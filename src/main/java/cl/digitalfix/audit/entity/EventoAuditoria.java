@@ -87,12 +87,23 @@ public class EventoAuditoria {
     @Column(name = "kafka_offset", nullable = false, updatable = false)
     private Long kafkaOffset;
 
+    // Partición/offset solo son únicos dentro de un tópico. Nullable para filas históricas.
+    @Column(name = "kafka_topico", updatable = false, length = 249)
+    private String kafkaTopico;
+
     // JPA necesita un constructor vacío
     protected EventoAuditoria() {}
 
     public EventoAuditoria(String eventId, String tipo, String correlationId, String traceId,
             Long ordenId, String accion, String estadoAnterior, String estadoNuevo, String tecnicoId,
             String actorId, String actorRoles, Instant fecha, int kafkaParticion, long kafkaOffset) {
+        this(eventId, tipo, correlationId, traceId, ordenId, accion, estadoAnterior, estadoNuevo,
+                tecnicoId, actorId, actorRoles, fecha, kafkaParticion, kafkaOffset, "workorders.events");
+    }
+
+    public EventoAuditoria(String eventId, String tipo, String correlationId, String traceId,
+            Long ordenId, String accion, String estadoAnterior, String estadoNuevo, String tecnicoId,
+            String actorId, String actorRoles, Instant fecha, int kafkaParticion, long kafkaOffset, String kafkaTopico) {
         this.eventId = eventId;
         this.tipo = tipo;
         this.correlationId = correlationId;
@@ -108,6 +119,7 @@ public class EventoAuditoria {
         this.recibidoEn = Instant.now();
         this.kafkaParticion = kafkaParticion;
         this.kafkaOffset = kafkaOffset;
+        this.kafkaTopico = kafkaTopico;
     }
 
     public Long getId() { return id; }
@@ -126,4 +138,5 @@ public class EventoAuditoria {
     public Instant getRecibidoEn() { return recibidoEn; }
     public Integer getKafkaParticion() { return kafkaParticion; }
     public Long getKafkaOffset() { return kafkaOffset; }
+    public String getKafkaTopico() { return kafkaTopico; }
 }

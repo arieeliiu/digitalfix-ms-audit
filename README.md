@@ -1,7 +1,7 @@
 # digitalfix-ms-audit
 
 Auditoría de las órdenes de trabajo de DigitalFix. Lee los eventos que publica Workorders en Kafka
-(`workorders.events`), los guarda en Oracle y los expone por una API **de solo lectura** para los
+(`workorders.events` y `audit.timeline`), los guarda en Oracle y los expone por una API **de solo lectura** para los
 roles **Admin** y **Auditor**.
 
 ```
@@ -66,6 +66,13 @@ H2 en modo Oracle y Kafka simulado (el listener no arranca en tests):
 ## Limitaciones conocidas
 
 - "Desde dónde" (IP u origen) no viaja en el evento de Workorders, así que no se registra.
-- `audit.timeline` existe en el clúster pero no se usa: el historial completo vive en Oracle
-  (`compact` conservaría solo el último evento por key).
+- El historial completo reúne ciclo de vida y ediciones en Oracle; Kafka conserva
+  ventanas de reproceso. Ambos tópicos requieren `delete` para no compactar las ediciones por orden.
 - Reinyectar mensajes desde el DLT es manual por ahora (candidato para el microservicio administrador de Kafka).
+
+## Integración de ambos tópicos
+
+Ver [contrato, migración y pruebas reales](docs/CONSUMO_KAFKA.md). Antes de habilitar
+los productores nuevos, integrar Infra #17 y este consumidor. La corrección de
+integridad de [Audit #4](https://github.com/arieeliiu/digitalfix-ms-audit/pull/4)
+es una dependencia independiente; este PR no la duplica.
