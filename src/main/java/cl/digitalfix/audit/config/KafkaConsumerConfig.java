@@ -65,6 +65,9 @@ public class KafkaConsumerConfig {
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         // El mensaje fallido no se puede perder: confirmación del leader y de todos los ISR
         config.put(ProducerConfig.ACKS_CONFIG, "all");
+        config.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 3000);
+        config.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 5000);
+        config.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 5000);
         return new DefaultKafkaProducerFactory<>(config);
     }
 
@@ -87,22 +90,44 @@ public class KafkaConsumerConfig {
     DefaultErrorHandler manejadorErrores(
             KafkaTemplate<String, String> kafkaTemplateDlt,
             @Value("${digitalfix.kafka.topico-dlt}") String topicoDlt,
+            @Value("${digitalfix.kafka.topico-dlt-ediciones:audit.timeline.audit.DLT}") String topicoDltEdiciones,
             @Value("${digitalfix.kafka.reintentos}") long reintentos,
             @Value("${digitalfix.kafka.espera-reintento}") Duration espera) {
 
         // Por defecto Spring enviaría a "<tópico>.DLT" (workorders.events.DLT), compartido con ms-report.
         // Cada consumidor tiene su propio DLT, así que indicamos el destino: misma partición de origen.
         var recuperador = new DeadLetterPublishingRecoverer(kafkaTemplateDlt,
-                (ConsumerRecord<?, ?> registro, Exception error) -> destinoDlt(topicoDlt, registro));
+                (ConsumerRecord<?, ?> registro, Exception error) -> destinoDlt(topicoDlt, topicoDltEdiciones, registro));
+        // Si el DLT no confirma, el registro no se considera recuperado y su offset no debe avanzar.
+        recuperador.setFailIfSendResultIsError(true);
+        recuperador.setWaitForSendResultTimeout(Duration.ofSeconds(6));
+        recuperador.setTimeoutBuffer(1000);
 
         var manejador = new DefaultErrorHandler(recuperador, new FixedBackOff(espera.toMillis(), reintentos));
         manejador.addNotRetryableExceptions(EventoInvalido.class);
+        manejador.setRetryListeners((registro, error, intento) ->
+                org.slf4j.LoggerFactory.getLogger(KafkaConsumerConfig.class).warn(
+                        "fallo_consumo topico={} particion={} offset={} intento={} causa={}",
+                        registro.topic(), registro.partition(), registro.offset(), intento, error.getClass().getSimpleName()));
         return manejador;
+    }
+
+    DefaultErrorHandler manejadorErrores(KafkaTemplate<String, String> template, String dlt, long reintentos, Duration espera) {
+        return manejadorErrores(template, dlt, "audit.timeline.audit.DLT", reintentos, espera);
     }
 
     // Separado para poder probarlo: el DLT tiene 3 particiones, igual que el tópico de origen.
     static TopicPartition destinoDlt(String topicoDlt, ConsumerRecord<?, ?> registro) {
-        return new TopicPartition(topicoDlt, registro.partition());
+        return destinoDlt(topicoDlt, "audit.timeline.audit.DLT", registro);
+    }
+
+    static TopicPartition destinoDlt(String dlt, String dltEdiciones, ConsumerRecord<?, ?> registro) {
+        String destino = switch (registro.topic()) {
+            case "workorders.events" -> dlt;
+            case "audit.timeline" -> dltEdiciones;
+            default -> throw new IllegalArgumentException("Tópico de origen no admitido");
+        };
+        return new TopicPartition(destino, registro.partition());
     }
 
     // El @KafkaListener usa este bean por su nombre ("kafkaListenerContainerFactory").

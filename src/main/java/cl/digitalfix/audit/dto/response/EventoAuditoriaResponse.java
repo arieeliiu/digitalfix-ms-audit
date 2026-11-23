@@ -19,11 +19,12 @@ public record EventoAuditoriaResponse(
         Instant recibidoEn,
         String correlationId,
         Integer kafkaParticion,
-        Long kafkaOffset) {
+        Long kafkaOffset,
+        String kafkaTopico) {
 
     public static EventoAuditoriaResponse desde(EventoAuditoria e) {
         return new EventoAuditoriaResponse(e.getEventId(), e.getTipo(), e.getOrdenId(), e.getAccion(),
                 e.getEstadoAnterior(), e.getEstadoNuevo(), e.getTecnicoId(), e.getActorId(), e.getActorRoles(),
-                e.getFecha(), e.getRecibidoEn(), e.getCorrelationId(), e.getKafkaParticion(), e.getKafkaOffset());
+                e.getFecha(), e.getRecibidoEn(), e.getCorrelationId(), e.getKafkaParticion(), e.getKafkaOffset(), e.getKafkaTopico());
     }
 }

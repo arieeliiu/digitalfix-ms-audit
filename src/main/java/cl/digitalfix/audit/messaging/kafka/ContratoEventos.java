@@ -18,18 +18,18 @@ public final class ContratoEventos {
 
     // Sobre común (el mismo formato que usa RabbitMQ)
     public record SobreEvento(
-            String schemaVersion,
-            @NotBlank @Pattern(regexp = "ORDEN_CREADA|ORDEN_ESTADO_CAMBIADO|ORDEN_ELIMINADA") String type,
+            @NotNull @Pattern(regexp = "1\\.0") String schemaVersion,
+            @NotBlank @Pattern(regexp = "ORDEN_CREADA|ORDEN_ESTADO_CAMBIADO|ORDEN_ELIMINADA|ORDEN_DATOS_ACTUALIZADOS|ORDEN_CONTACTOS_ACTUALIZADOS|ORDEN_REPUESTOS_ACTUALIZADOS") String type,
             @NotNull UUID eventId,          // único por evento: clave de la idempotencia
-            Instant timestamp,
-            UUID traceId,
+            @NotNull Instant timestamp,
+            @NotNull UUID traceId,
             @Size(max = 100) String correlationId,
             @NotNull @Valid EventoOrden payload) {}
 
     // Payload: quién hizo qué, sobre qué orden y cuándo
     public record EventoOrden(
             @NotNull @Positive Long ordenId,
-            @NotBlank @Pattern(regexp = "CREACION|CAMBIO_ESTADO|ELIMINACION") String accion,
+            @NotBlank @Pattern(regexp = "CREACION|CAMBIO_ESTADO|ELIMINACION|EDICION_DATOS|EDICION_CONTACTOS|EDICION_REPUESTOS") String accion,
             @Size(max = 30) String estadoAnterior,
             @Size(max = 30) String estadoNuevo,
             @Size(max = 100) String tecnicoId,

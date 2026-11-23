@@ -27,6 +27,9 @@ class KafkaConsumerConfigTests {
         KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
         when(template.send(any(ProducerRecord.class)))
                 .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
+        var fabrica = mock(org.springframework.kafka.core.ProducerFactory.class);
+        when(fabrica.getConfigurationProperties()).thenReturn(java.util.Map.of("delivery.timeout.ms", 1000));
+        when(template.getProducerFactory()).thenReturn(fabrica);
         return template;
     }
 
@@ -46,6 +49,22 @@ class KafkaConsumerConfigTests {
         var destino = KafkaConsumerConfig.destinoDlt(DLT, registro);
         assertEquals(DLT, destino.topic());
         assertEquals(2, destino.partition());
+    }
+
+    @Test void cadaOrigenTieneSuDlt() {
+        var edicion = new ConsumerRecord<String, String>("audit.timeline", 1, 0, "22", "{malo");
+        assertEquals(new org.apache.kafka.common.TopicPartition("audit.timeline.audit.DLT", 1),
+                KafkaConsumerConfig.destinoDlt(DLT, edicion));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test void dltSinConfirmacionNoSeConsideraRecuperado() {
+        var template = template();
+        when(template.send(any(ProducerRecord.class)))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("DLT no disponible")));
+        var manejador = new KafkaConsumerConfig().manejadorErrores(template, DLT, 0, Duration.ofMillis(1));
+        assertFalse(manejador.handleOne(new EventoInvalido("json_invalido"), registro,
+                consumidor(), mock(MessageListenerContainer.class)));
     }
 
     @SuppressWarnings("unchecked")
