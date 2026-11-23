@@ -45,8 +45,11 @@ public class AuditoriaService {
         try {
             repositorio.saveAndFlush(registro);
             return true;
-        } catch (DataIntegrityViolationException duplicado) {
-            return false;
+        } catch (DataIntegrityViolationException error) {
+            // Tras el rollback del insert, otra transacción puede haber guardado el mismo evento.
+            // Otros errores de integridad deben propagarse para no confirmar un evento perdido.
+            if (repositorio.existsByEventId(eventId)) return false;
+            throw error;
         }
     }
 

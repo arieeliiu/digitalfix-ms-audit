@@ -21,6 +21,7 @@ Puerto **8083**. Java 21, Spring Boot 4.1.1.
 2. Convierte el JSON a `SobreEvento` y lo valida. Si no se puede → `EventoInvalido` → **directo al DLT**.
 3. `AuditoriaService.registrar` lo guarda. Si el `eventId` ya existe → **duplicado ignorado** (idempotencia).
 4. Si Oracle falla → se **reintenta** 3 veces con 1 s de espera; si sigue fallando → **DLT**.
+   Un error de integridad solo se ignora si el `eventId` ya está persistido; los demás fallos se propagan.
 5. Solo si todo salió bien se hace **commit del offset** (`AckMode.RECORD`).
 
 | Clase | Responsabilidad |
@@ -62,6 +63,8 @@ Variables: ver [.env.example](.env.example).
 
 H2 en modo Oracle y Kafka simulado (el listener no arranca en tests):
 `ConsumidorEventosOrdenTests`, `AuditoriaControllerTests` y `KafkaConsumerConfigTests` (DLT y reintentos).
+`IntegridadAuditoriaTests` comprueba restricciones H2 reales, reentrega y colisión concurrente
+de identidad. No certifica esas transacciones contra Oracle ni el envío real a DLT.
 
 ## Limitaciones conocidas
 
